@@ -1,0 +1,224 @@
+version: "3.9"
+services:
+  # === AUTH SERVICE ===
+  auth-service:
+    build: ./sentracare-be-auth
+    ports:
+      - "8002:8000"
+    environment:
+      - DATABASE_URL=mysql+pymysql://auth_user:auth_pass@db-auth:3306/auth_db
+      - AUTH_SECRET_KEY=supersecretkey
+      - ACCESS_TOKEN_EXPIRE_MINUTES=60
+      - AUTH_ISSUER=sentracare-auth
+      - AUTH_AUDIENCE=sentracare-services
+    depends_on:
+      - db-auth
+    restart: on-failure
+
+  db-auth:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: auth_db
+      MYSQL_USER: auth_user
+      MYSQL_PASSWORD: auth_pass
+    ports:
+      - "3308:3306"
+    volumes:
+      - db_auth_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  phpmyadmin-auth:
+    image: phpmyadmin/phpmyadmin:latest
+    restart: always
+    ports:
+      - "8081:80" # phpMyAdmin bisa diakses di http://localhost:8081
+    environment:
+      PMA_HOST: db-auth
+      PMA_PORT: 3306
+      PMA_USER: auth_user
+      PMA_PASSWORD: auth_pass
+    depends_on:
+      - db-auth
+
+  # === PHARMACY SERVICE ===
+  pharmacy-service:
+    build: ./sentracare-be-pharmacy
+    ports:
+      - "8003:8000"
+    environment:
+      - DATABASE_URL=mysql+pymysql://user:pass@db-pharmacy:3306/sentracare_pharmacy
+      - AUTH_SECRET_KEY=supersecretkey
+      - AUTH_ISSUER=sentracare-auth
+      - AUTH_AUDIENCE=sentracare-services
+    depends_on:
+      - db-pharmacy
+    restart: on-failure
+
+  db-pharmacy:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: sentracare_pharmacy
+      MYSQL_USER: user
+      MYSQL_PASSWORD: pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_pharmacy_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  phpmyadmin-pharmacy:
+    image: phpmyadmin/phpmyadmin:latest
+    restart: always
+    ports:
+      - "8082:80" # phpMyAdmin bisa diakses di http://localhost:8082
+    environment:
+      PMA_HOST: db-pharmacy
+      PMA_PORT: 3306
+      PMA_USER: user
+      PMA_PASSWORD: pass
+    depends_on:
+      - db-pharmacy
+
+  # === BOOKING SERVICE ===
+  booking-service:
+    build: ./sentracare-be-booking
+    ports:
+      - "8001:8000"
+    environment:
+      - DATABASE_URL=mysql+pymysql://user:pass@db-booking:3306/sentracare_booking
+      - AUTH_SECRET_KEY=supersecretkey
+      - AUTH_ISSUER=sentracare-auth
+      - AUTH_AUDIENCE=sentracare-services
+
+    depends_on:
+      - db-booking
+    restart: on-failure
+
+  db-booking:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: sentracare_booking
+      MYSQL_USER: user
+      MYSQL_PASSWORD: pass
+    ports:
+      - "3307:3306" # host port 3307 -> container port 3306
+    volumes:
+      - db_booking_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  phpmyadmin-booking:
+    image: phpmyadmin/phpmyadmin:latest
+    restart: always
+    ports:
+      - "8080:80" # phpMyAdmin bisa diakses di http://localhost:8080
+    environment:
+      PMA_HOST: db-booking
+      PMA_PORT: 3306
+      PMA_USER: user
+      PMA_PASSWORD: pass
+    depends_on:
+      - db-booking
+
+  # === INSURANCE SERVICE ===
+  # insurance-service:
+  #   build: ./sentracare-be-insurance
+  #   ports:
+  #     - "8001:8001" # Akses API di localhost:8001
+  #   environment:
+  #     - DATABASE_URL=mysql+pymysql://user:pass@db-insurance:3306/sentracare_insurance
+  #   depends_on:
+  #     - db-insurance
+  #   restart: on-failure
+
+  # db-insurance:
+  #   image: mysql:8.0
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: rootpass
+  #     MYSQL_DATABASE: sentracare_insurance
+  #     MYSQL_USER: user
+  #     MYSQL_PASSWORD: pass
+  #   ports:
+  #     - "3307:3306" # Port host beda (3307) biar gak bentrok sama pharmacy
+  #   volumes:
+  #     - db_insurance_data:/var/lib/mysql
+  #   healthcheck:
+  #     test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+  # phpmyadmin-insurance:
+  #   image: phpmyadmin/phpmyadmin:latest
+  #   restart: always
+  #   ports:
+  #     - "8004:80" # PhpMyAdmin bisa diakses di http://localhost:8004
+  #   environment:
+  #     PMA_HOST: db-insurance
+  #     PMA_PORT: 3306
+  #     PMA_USER: user
+  #     PMA_PASSWORD: pass
+  #   depends_on:
+  #     - db-insurance
+
+  # === patient service ===
+  patient-service:
+    build: ./sentracare-be-patient
+    ports:
+      - "8004:8000"
+    environment:
+      - DATABASE_URL=mysql+pymysql://user:pass@db-patient:3306/sentracare_patient
+
+    depends_on:
+      - db-patient
+    restart: on-failure
+
+  db-patient:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: sentracare_patient
+      MYSQL_USER: user
+      MYSQL_PASSWORD: pass
+    ports:
+      - "3309:3306" # host port 3309 -> container port 3306
+    volumes:
+      - db_patient_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  phpmyadmin-patient:
+    image: phpmyadmin/phpmyadmin:latest
+    restart: always
+    ports:
+      - "8084:80" # phpMyAdmin bisa diakses di http://localhost:8084
+    environment:
+      PMA_HOST: db-patient
+      PMA_PORT: 3306
+      PMA_USER: user
+      PMA_PASSWORD: pass
+    depends_on:
+      - db-patient
+volumes:
+  db_auth_data:
+  db_pharmacy_data:
+  db_booking_data:
+  db_patient_data:
+  # db_insurance_data:
